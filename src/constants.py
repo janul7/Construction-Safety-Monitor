@@ -1,0 +1,5 @@
+CLASS_NAMES = {
+    0: "person",
+    1: "helmet",
+    2: "vest"
+}

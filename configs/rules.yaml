@@ -1,0 +1,35 @@
+site_name: default_construction_site
+
+model:
+  class_map:
+    person: 0
+    helmet: 1
+    vest: 2
+
+thresholds:
+  person_conf: 0.35
+  helmet_conf: 0.25
+  vest_conf: 0.25
+  min_person_area_ratio: 0.008
+
+association:
+  helmet_top_ratio: 0.35
+  vest_top_ratio: 0.30
+  vest_bottom_ratio: 0.85
+  side_padding_ratio: 0.10
+
+policy:
+  default_required_ppe: ["helmet", "vest"]
+  mark_uncertain_as_violation: false
+
+video:
+  use_tracking: true
+  tracker: bytetrack.yaml
+  smoothing_window: 7
+  min_violation_votes: 4
+
+zones:
+  - name: full_site
+    enabled: true
+    polygon: []
+    required_ppe: ["helmet", "vest"]

@@ -1,8 +1,6 @@
 ultralytics
 opencv-python
-pillow
-imagehash
+PyYAML
+numpy
 pandas
-pyyaml
-matplotlib
-scikit-learn
+streamlit

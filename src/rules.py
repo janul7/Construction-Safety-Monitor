@@ -1,3 +1,10 @@
+"""Rule engine for PPE compliance evaluation.
+
+Evaluates YOLO detections against configurable safety rules,
+associates PPE items (helmet, vest) with individual workers
+using spatial regions, and determines scene-level safety status.
+"""
+
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 import yaml
@@ -47,9 +54,7 @@ def iou(box_a: Tuple[float, float, float, float], box_b: Tuple[float, float, flo
 
 
 def point_in_polygon(point: Point, polygon: Polygon) -> bool:
-    """
-    Ray-casting algorithm.
-    """
+    """Check if a point is inside a polygon using the ray-casting algorithm."""
     x, y = point
     inside = False
     n = len(polygon)
@@ -82,6 +87,12 @@ def make_region(
     bottom_ratio: float,
     side_padding_ratio: float,
 ) -> Tuple[float, float, float, float]:
+    """Create a sub-region within a person bounding box.
+
+    Used to define the expected head region (for helmets) and
+    torso region (for vests) relative to the full person box.
+    Ratios are fractions of the person box height/width.
+    """
     x1, y1, x2, y2 = person_box
     width = x2 - x1
     height = y2 - y1
@@ -151,6 +162,8 @@ def find_best_candidate(
         overlap = iou(det.box, person_box)
         horizontal_alignment = 1.0 if person_box[0] <= center[0] <= person_box[2] else 0.0
 
+        # Weighted score: confidence matters most, then spatial overlap,
+        # then horizontal alignment within the person box
         score = (0.60 * det.confidence) + (0.25 * overlap) + (0.15 * horizontal_alignment)
 
         if score > best_score:
@@ -186,6 +199,7 @@ def evaluate_detections(
     policy = rules["policy"]
     zones = rules.get("zones", [])
 
+    # Separate detections by class and filter by confidence thresholds
     persons = [
         det for det in detections
         if det.class_id == class_map["person"] and det.confidence >= thresholds["person_conf"]
@@ -199,6 +213,8 @@ def evaluate_detections(
         if det.class_id == class_map["vest"] and det.confidence >= thresholds["vest_conf"]
     ]
 
+    # Track which PPE items have already been matched to prevent
+    # the same helmet/vest being assigned to multiple workers
     used_helmets: Set[int] = set()
     used_vests: Set[int] = set()
     worker_reports: List[WorkerAssessment] = []
@@ -224,13 +240,20 @@ def evaluate_detections(
         if touches_frame_edge(person.box, frame_width, frame_height):
             notes.append("person_truncated_at_frame_edge")
 
+        # Check for marginal person detection confidence
+        marginal_factor = thresholds.get("marginal_confidence_factor", 1.3)
+        if person.confidence < thresholds["person_conf"] * marginal_factor:
+            notes.append("low_person_detection_confidence")
+
+        # Define search regions within the person box:
+        # Helmet region = top portion (head area)
         helmet_region = make_region(
             person_box=person.box,
             top_ratio=0.0,
             bottom_ratio=association["helmet_top_ratio"],
             side_padding_ratio=association["side_padding_ratio"],
         )
-
+        # Vest region = middle portion (torso area)
         vest_region = make_region(
             person_box=person.box,
             top_ratio=association["vest_top_ratio"],
@@ -251,6 +274,8 @@ def evaluate_detections(
             )
             if helmet_match is None:
                 violations.append("missing_helmet")
+            elif helmet_match.confidence < thresholds["helmet_conf"] * marginal_factor:
+                notes.append("low_helmet_confidence")
 
         if "vest" in required_ppe:
             vest_match = find_best_candidate(
@@ -262,6 +287,8 @@ def evaluate_detections(
             )
             if vest_match is None:
                 violations.append("missing_vest")
+            elif vest_match.confidence < thresholds["vest_conf"] * marginal_factor:
+                notes.append("low_vest_confidence")
 
         status = "COMPLIANT"
         if violations:
@@ -299,5 +326,8 @@ def evaluate_detections(
         "violating_workers": sum(worker.status == "VIOLATION" for worker in worker_reports),
         "uncertain_workers": sum(worker.status == "UNCERTAIN" for worker in worker_reports),
     }
+
+    if not worker_reports:
+        summary["notes"] = ["no_workers_detected"]
 
     return worker_reports, scene_status, summary

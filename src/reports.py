@@ -1,8 +1,6 @@
-"""Pure-Python report helpers shared between app.py and tests."""
+"""Pure-Python report helpers used by the Streamlit app."""
 
 import pandas as pd
-
-from src.schemas import WorkerAssessment
 
 
 def build_worker_dataframe(workers) -> pd.DataFrame:

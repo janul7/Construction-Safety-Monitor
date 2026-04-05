@@ -119,7 +119,7 @@ From the app you can:
 
 ## Problem Framing & Why YOLOv8
 
-This project is framed as a **construction-site PPE monitoring** problem. The system first detects three visual classes in each frame — **person, helmet, and vest** — and then uses the application layer to determine whether each worker is compliant and whether the overall scene is safe or unsafe. This separation keeps the model focused on reliable object detection while allowing the safety logic to remain transparent, configurable, and easy to improve. This framing matches the assignment’s core requirements: worker detection, PPE recognition, compliance checking, and violation flagging.
+This project is framed as a **construction-site PPE monitoring** problem. The system first detects three visual classes in each frame — **person, helmet, and vest** — and then uses the application layer to determine whether each worker is compliant and whether the overall scene is safe or unsafe. This separation keeps the model focused on reliable object detection while allowing the safety logic to remain transparent, configurable, and easy to improve. 
 
 **Why YOLOv8**
 

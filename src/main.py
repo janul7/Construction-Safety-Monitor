@@ -1,3 +1,5 @@
+"""CLI entry point for running safety analysis on images or videos."""
+
 import argparse
 from pathlib import Path
 

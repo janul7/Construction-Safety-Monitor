@@ -11,6 +11,7 @@ thresholds:
   helmet_conf: 0.25
   vest_conf: 0.25
   min_person_area_ratio: 0.008
+  marginal_confidence_factor: 1.3
 
 association:
   helmet_top_ratio: 0.35

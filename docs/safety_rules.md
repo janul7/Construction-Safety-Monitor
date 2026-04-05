@@ -94,19 +94,23 @@ This means no worker requiring PPE was detected within the current scope.
 
 To avoid overconfident decisions, the system can also attach a review note when visibility is poor.
 
-Examples:
+The system currently handles the following uncertainty scenarios:
 
-- worker is very small in the frame,
-- worker is partially occluded,
-- worker is heavily truncated,
-- PPE visibility is unclear,
-- detection confidence is weak.
+- **Worker is very small in the frame** — the person bounding box occupies less than 0.8% of the frame area, making PPE detection unreliable.
+- **Worker is heavily truncated** — the person bounding box touches the edge of the image, meaning part of the worker (and their PPE) may be cut off.
+- **Detection confidence is weak** — the person, helmet, or vest detection confidence is only marginally above the minimum threshold, indicating the model is not highly certain about its prediction.
 
-In such cases, the system can add:
+In such cases, the system adds notes such as:
 
-- `review_recommended`
+- `person_too_small_for_reliable_ppe_check`
+- `person_truncated_at_frame_edge`
+- `low_person_detection_confidence`
+- `low_helmet_confidence`
+- `low_vest_confidence`
 
-The main scene label still remains **SAFE** or **UNSAFE**.
+If a worker has uncertainty notes but no clear PPE violation, their status is set to **UNCERTAIN**, and the scene status becomes **REVIEW**.
+
+If a worker has both a violation and uncertainty notes, the **VIOLATION** status takes priority.
 
 ---
 
@@ -193,7 +197,8 @@ The following are not enforced in the current version:
 - harness detection,
 - fall-protection checking,
 - unsafe posture detection,
-- vehicle or electrical hazards,
-- advanced zone-based PPE policies.
+- advanced zone-based PPE policies,
+- partial occlusion detection (e.g., worker hidden behind machinery or another worker),
+- PPE visibility analysis based on lighting, blur, or shadow conditions.
 
 These are valid future extensions, but they are outside the current detector labels and current project scope.

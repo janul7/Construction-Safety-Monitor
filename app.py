@@ -155,6 +155,11 @@ elif is_video:
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+    # Adaptive frame sampling: only run inference every N frames
+    analysis_fps = monitor.rules.get("video", {}).get("analysis_fps", 2)
+    frame_skip = max(1, round(fps / analysis_fps))
+    frames_to_analyze = max(1, total_frame_count // frame_skip) if total_frame_count > 0 else 0
+
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as out_tmp:
         out_video_path = out_tmp.name
 
@@ -166,31 +171,41 @@ elif is_video:
     all_reports: list = []
     progress = st.progress(0, text="Processing video...")
     idx = 0
+    analyzed_count = 0
+    last_workers: list = []
+    last_scene_status = "SAFE"
+    last_summary: dict = {"total_workers": 0, "compliant_workers": 0, "violating_workers": 0, "uncertain_workers": 0}
 
     while True:
         ok, frame = cap.read()
         if not ok:
             break
 
-        workers, scene_status, summary = monitor.analyze_frame(
-            frame, use_tracking=monitor.use_tracking,
-        )
+        if idx % frame_skip == 0:
+            workers, scene_status, summary = monitor.analyze_frame(
+                frame, use_tracking=monitor.use_tracking,
+            )
+            last_workers, last_scene_status, last_summary = workers, scene_status, summary
+            analyzed_count += 1
+
+            fr = FrameReport(
+                frame_index=idx,
+                scene_status=scene_status,
+                worker_reports=workers,
+                summary=summary,
+            )
+            all_reports.append(fr.to_dict())
+        else:
+            workers, scene_status, summary = last_workers, last_scene_status, last_summary
+
         annotated = monitor.annotate_frame(frame, workers, scene_status)
         writer.write(annotated)
-
-        fr = FrameReport(
-            frame_index=idx,
-            scene_status=scene_status,
-            worker_reports=workers,
-            summary=summary,
-        )
-        all_reports.append(fr.to_dict())
 
         idx += 1
         if total_frame_count > 0:
             progress.progress(
                 min(idx / total_frame_count, 1.0),
-                text=f"Frame {idx}/{total_frame_count}",
+                text=f"Frame {idx}/{total_frame_count} (analysed {analyzed_count}/{frames_to_analyze})",
             )
 
     cap.release()
@@ -205,9 +220,9 @@ elif is_video:
     st.subheader(f"Overall Status: {status_badge(overall)}")
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Frames Analysed", idx)
+    c1.metric("Frames Analysed", analyzed_count)
     c2.metric("Unsafe Frames", len(unsafe_reports))
-    c3.metric("Violation Rate", f"{len(unsafe_reports) / max(idx, 1):.1%}")
+    c3.metric("Violation Rate", f"{len(unsafe_reports) / max(analyzed_count, 1):.1%}")
     c4.metric("Violation Instances", total_violations)
 
     # Annotated video playback

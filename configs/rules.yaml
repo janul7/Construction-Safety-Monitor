@@ -26,6 +26,7 @@ policy:
 video:
   use_tracking: true
   tracker: bytetrack.yaml
+  analysis_fps: 2
   smoothing_window: 7
   min_violation_votes: 4
 

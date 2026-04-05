@@ -240,24 +240,36 @@ class SafetyMonitor:
         frame_index = 0
         all_reports = []
 
+        # Adaptive frame sampling
+        analysis_fps = self.rules.get("video", {}).get("analysis_fps", 2)
+        frame_skip = max(1, round(fps / analysis_fps))
+        last_workers: List[WorkerAssessment] = []
+        last_scene_status = "SAFE"
+        last_summary: Dict = {"total_workers": 0, "compliant_workers": 0, "violating_workers": 0, "uncertain_workers": 0}
+
         while True:
             ok, frame = cap.read()
             if not ok:
                 break
 
-            workers, scene_status, summary = self.analyze_frame(
-                frame, use_tracking=self.use_tracking,
-            )
+            if frame_index % frame_skip == 0:
+                workers, scene_status, summary = self.analyze_frame(
+                    frame, use_tracking=self.use_tracking,
+                )
+                last_workers, last_scene_status, last_summary = workers, scene_status, summary
+
+                frame_report = FrameReport(
+                    frame_index=frame_index,
+                    scene_status=scene_status,
+                    worker_reports=workers,
+                    summary=summary,
+                )
+                all_reports.append(frame_report.to_dict())
+            else:
+                workers, scene_status = last_workers, last_scene_status
+
             annotated = self.annotate_frame(frame, workers, scene_status)
             writer.write(annotated)
-
-            frame_report = FrameReport(
-                frame_index=frame_index,
-                scene_status=scene_status,
-                worker_reports=workers,
-                summary=summary,
-            )
-            all_reports.append(frame_report.to_dict())
             frame_index += 1
 
         cap.release()

@@ -111,10 +111,9 @@ From the app you can:
 
 ### Notebooks
 
-| Notebook                                                               | Description                                                                                                                                        |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`notebooks/dataset_creation.ipynb`](notebooks/dataset_creation.ipynb) | Shows the data preparation workflow, including dataset collection, annotation export handling, preprocessing, merging, and final dataset creation. |
-| [`notebooks/training_yolov8.ipynb`](notebooks/training_yolov8.ipynb)   | Contains the model training pipeline, evaluation steps, and training results for the YOLOv8 PPE detector.                                          |
+| Notebook                                                           | Description                                                                                               |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| [`notebooks/Model_Training.ipynb`](notebooks/Model_Training.ipynb) | Contains the model training pipeline, evaluation steps, and training results for the YOLOv8 PPE detector. |
 
 ---
 

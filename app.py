@@ -22,11 +22,9 @@ IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "bmp", "webp"}
 VIDEO_EXTENSIONS = {"mp4", "avi", "mov", "mkv", "m4v"}
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
-
-
 @st.cache_resource
 def load_monitor(model_path: str, rules_path: str) -> SafetyMonitor:
+    """Load the model once and cache it across Streamlit reruns."""
     return SafetyMonitor(model_path=model_path, rules_path=rules_path)
 
 
@@ -41,15 +39,10 @@ st.set_page_config(
 st.title("\U0001f3d7\ufe0f Construction Safety Monitor")
 st.caption("Real-time PPE compliance analysis for construction sites")
 
-# ── Sidebar ──────────────────────────────────────────────────────────────────
+# ── Config (defaults) ────────────────────────────────────────────────────────
 
-with st.sidebar:
-    st.header("Configuration")
-    model_path = st.text_input("Model weights path", value="model/best.pt")
-    rules_path = st.text_input("Rules config path", value="configs/rules.yaml")
-    st.divider()
-    st.caption("**Images:** JPG, PNG, BMP, WebP")
-    st.caption("**Videos:** MP4, AVI, MOV, MKV")
+model_path = "model/best.pt"
+rules_path = "configs/rules.yaml"
 
 # ── Upload ───────────────────────────────────────────────────────────────────
 

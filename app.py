@@ -14,7 +14,6 @@ from src.reports import (
     build_worker_dataframe,
     image_report_markdown,
     status_badge,
-    video_report_markdown,
 )
 from src.schemas import FrameReport
 
@@ -152,138 +151,189 @@ elif is_video:
 
     total_frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
-    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    duration_sec = total_frame_count / fps if fps > 0 else 0
 
-    # Adaptive frame sampling: only run inference every N frames
+    # Decide how many frames to sample based on video duration
     analysis_fps = monitor.rules.get("video", {}).get("analysis_fps", 2)
-    frame_skip = max(1, round(fps / analysis_fps))
-    frames_to_analyze = max(1, total_frame_count // frame_skip) if total_frame_count > 0 else 0
+    num_samples = max(1, int(duration_sec * analysis_fps))
+    # Cap at a reasonable maximum for very long videos
+    num_samples = min(num_samples, 100)
 
-    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as out_tmp:
-        out_video_path = out_tmp.name
+    # Evenly space sample positions across the video
+    sample_indices = [
+        int(i * total_frame_count / num_samples)
+        for i in range(num_samples)
+    ]
 
-    writer = cv2.VideoWriter(
-        out_video_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h),
-    )
-    monitor.reset_tracking()
+    progress = st.progress(0, text="Analysing video...")
+    annotated_frames = []
+    all_frame_workers = []
 
-    all_reports: list = []
-    progress = st.progress(0, text="Processing video...")
-    idx = 0
-    analyzed_count = 0
-    last_workers: list = []
-    last_scene_status = "SAFE"
-    last_summary: dict = {"total_workers": 0, "compliant_workers": 0, "violating_workers": 0, "uncertain_workers": 0}
-
-    while True:
+    for count, frame_idx in enumerate(sample_indices):
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
         ok, frame = cap.read()
         if not ok:
-            break
+            continue
 
-        if idx % frame_skip == 0:
-            workers, scene_status, summary = monitor.analyze_frame(
-                frame, use_tracking=monitor.use_tracking,
-            )
-            last_workers, last_scene_status, last_summary = workers, scene_status, summary
-            analyzed_count += 1
-
-            fr = FrameReport(
-                frame_index=idx,
-                scene_status=scene_status,
-                worker_reports=workers,
-                summary=summary,
-            )
-            all_reports.append(fr.to_dict())
-        else:
-            workers, scene_status, summary = last_workers, last_scene_status, last_summary
-
+        workers, scene_status, summary = monitor.analyze_frame(frame)
         annotated = monitor.annotate_frame(frame, workers, scene_status)
-        writer.write(annotated)
 
-        idx += 1
-        if total_frame_count > 0:
-            progress.progress(
-                min(idx / total_frame_count, 1.0),
-                text=f"Frame {idx}/{total_frame_count} (analysed {analyzed_count}/{frames_to_analyze})",
-            )
-
-    cap.release()
-    writer.release()
-    progress.empty()
-
-    # Aggregate stats
-    unsafe_reports = [r for r in all_reports if r["scene_status"] == "UNSAFE"]
-    total_violations = sum(r["summary"]["violating_workers"] for r in all_reports)
-    overall = "UNSAFE" if unsafe_reports else "SAFE"
-
-    st.subheader(f"Overall Status: {status_badge(overall)}")
-
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Frames Analysed", analyzed_count)
-    c2.metric("Unsafe Frames", len(unsafe_reports))
-    c3.metric("Violation Rate", f"{len(unsafe_reports) / max(analyzed_count, 1):.1%}")
-    c4.metric("Violation Instances", total_violations)
-
-    # Annotated video playback
-    st.subheader("Annotated Video")
-    with open(out_video_path, "rb") as vf:
-        video_bytes = vf.read()
-    st.video(video_bytes)
-
-    # Safety timeline
-    st.subheader("Safety Timeline")
-    if all_reports:
-        timeline_df = pd.DataFrame({
-            "Frame": [r["frame_index"] for r in all_reports],
-            "Violations": [r["summary"]["violating_workers"] for r in all_reports],
+        annotated_frames.append({
+            "frame_idx": frame_idx,
+            "time_sec": round(frame_idx / fps, 1),
+            "annotated": annotated,
+            "scene_status": scene_status,
+            "summary": summary,
+            "workers": workers,
         })
-        st.area_chart(
-            timeline_df.set_index("Frame")[["Violations"]],
-            color=["#ff4b4b"],
+
+        for w in workers:
+            all_frame_workers.append({
+                "frame_idx": frame_idx,
+                "time_sec": round(frame_idx / fps, 1),
+                "worker_index": w.worker_index,
+                "status": w.status,
+                "helmet": w.helmet_detected,
+                "vest": w.vest_detected,
+                "violations": w.violations,
+                "notes": w.notes,
+            })
+
+        progress.progress(
+            min((count + 1) / num_samples, 1.0),
+            text=f"Analysing frame {count + 1}/{num_samples}",
         )
 
-    # Frame-level violation details
-    if unsafe_reports:
-        st.subheader("Frame-Level Violation Details")
-        max_display = 50
-        for i, r in enumerate(unsafe_reports):
-            if i >= max_display:
-                st.caption(
-                    f"Showing first {max_display} unsafe frames. "
-                    "Download the full report for complete details."
-                )
-                break
-            with st.expander(
-                f"Frame {r['frame_index']} — "
-                f"{r['summary']['violating_workers']} violation(s)"
-            ):
-                rows = []
-                for wr in r["worker_reports"]:
-                    if wr["status"] == "VIOLATION":
-                        tid = wr.get("track_id")
-                        label = f"ID:{tid}" if tid is not None else f"W{wr['worker_index']}"
-                        rows.append({
-                            "Worker": label,
-                            "Helmet": "Yes" if wr["helmet_detected"] else "No",
-                            "Vest": "Yes" if wr["vest_detected"] else "No",
-                            "Violations": ", ".join(wr["violations"]),
-                        })
-                if rows:
-                    st.dataframe(pd.DataFrame(rows), hide_index=True)
+    cap.release()
+    progress.empty()
 
-    # Downloads
+    # ── Aggregate summary ────────────────────────────────────────────────
+    total_workers_seen = len(all_frame_workers)
+    total_compliant = sum(1 for w in all_frame_workers if w["status"] == "COMPLIANT")
+    total_violating = sum(1 for w in all_frame_workers if w["status"] == "VIOLATION")
+    total_uncertain = sum(1 for w in all_frame_workers if w["status"] == "UNCERTAIN")
+
+    unsafe_frames = [f for f in annotated_frames if f["scene_status"] == "UNSAFE"]
+    review_frames = [f for f in annotated_frames if f["scene_status"] == "REVIEW"]
+    safe_frames = [f for f in annotated_frames if f["scene_status"] == "SAFE"]
+
+    if unsafe_frames:
+        overall = "UNSAFE"
+    elif review_frames:
+        overall = "REVIEW"
+    else:
+        overall = "SAFE"
+
+    # Count violation types across all frames
+    violation_counts: dict = {}
+    for w in all_frame_workers:
+        for v in w["violations"]:
+            violation_counts[v] = violation_counts.get(v, 0) + 1
+
+    # ── Display ──────────────────────────────────────────────────────────
+    st.subheader(f"Overall Video Status: {status_badge(overall)}")
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Frames Sampled", len(annotated_frames))
+    c2.metric("Video Duration", f"{duration_sec:.1f}s")
+    c3.metric("Unsafe Frames", len(unsafe_frames))
+    c4.metric("Safe Frames", len(safe_frames))
+
+    st.divider()
+    st.subheader("Worker Summary Across Video")
+
+    w1, w2, w3, w4 = st.columns(4)
+    w1.metric("Total Worker Detections", total_workers_seen)
+    w2.metric("Compliant", total_compliant)
+    w3.metric("Violations", total_violating)
+    w4.metric("Uncertain", total_uncertain)
+
+    if violation_counts:
+        st.markdown("**Violation Breakdown:**")
+        viol_rows = [{"Violation Type": k, "Count": v} for k, v in sorted(violation_counts.items(), key=lambda x: -x[1])]
+        st.dataframe(pd.DataFrame(viol_rows), hide_index=True, use_container_width=True)
+
+    # ── Sample frame gallery ─────────────────────────────────────────────
+    st.divider()
+    st.subheader("Sample Frames")
+
+    # Show unsafe frames first, then review, then a few safe ones
+    display_frames = unsafe_frames + review_frames
+    if not display_frames:
+        display_frames = safe_frames[:4]
+    else:
+        display_frames = display_frames[:8]
+
+    cols_per_row = min(len(display_frames), 3)
+    for row_start in range(0, len(display_frames), cols_per_row):
+        row_frames = display_frames[row_start:row_start + cols_per_row]
+        cols = st.columns(len(row_frames))
+        for col, fdata in zip(cols, row_frames):
+            with col:
+                st.image(
+                    cv2.cvtColor(fdata["annotated"], cv2.COLOR_BGR2RGB),
+                    caption=f"t={fdata['time_sec']}s — {fdata['scene_status']}",
+                    use_container_width=True,
+                )
+
+    # ── Downloads ────────────────────────────────────────────────────────
+    st.divider()
     st.subheader("Download Report")
+
     full_report = {
         "source": uploaded.name,
-        "total_frames": idx,
-        "fps": fps,
-        "frames": all_reports,
+        "duration_sec": round(duration_sec, 1),
+        "frames_sampled": len(annotated_frames),
+        "overall_status": overall,
+        "summary": {
+            "total_worker_detections": total_workers_seen,
+            "compliant": total_compliant,
+            "violating": total_violating,
+            "uncertain": total_uncertain,
+            "violation_breakdown": violation_counts,
+        },
+        "unsafe_frames": len(unsafe_frames),
+        "review_frames": len(review_frames),
+        "safe_frames": len(safe_frames),
     }
     json_str = json.dumps(full_report, indent=2)
-    md_str = video_report_markdown(uploaded.name, idx, all_reports, timestamp)
 
-    d1, d2, d3 = st.columns(3)
+    md_lines = [
+        f"# Video Analysis Report",
+        f"",
+        f"**Source:** {uploaded.name}",
+        f"**Date:** {timestamp}",
+        f"**Duration:** {duration_sec:.1f}s | **Frames sampled:** {len(annotated_frames)}",
+        f"**Overall status:** {overall}",
+        f"",
+        f"## Worker Summary",
+        f"",
+        f"| Metric | Count |",
+        f"|--------|-------|",
+        f"| Total worker detections | {total_workers_seen} |",
+        f"| Compliant | {total_compliant} |",
+        f"| Violations | {total_violating} |",
+        f"| Uncertain | {total_uncertain} |",
+        f"",
+    ]
+    if violation_counts:
+        md_lines.append("## Violation Breakdown\n")
+        md_lines.append("| Type | Count |")
+        md_lines.append("|------|-------|")
+        for vtype, vcount in sorted(violation_counts.items(), key=lambda x: -x[1]):
+            md_lines.append(f"| {vtype} | {vcount} |")
+        md_lines.append("")
+
+    md_lines.append(f"## Frame Status\n")
+    md_lines.append(f"| Status | Frames |")
+    md_lines.append(f"|--------|--------|")
+    md_lines.append(f"| UNSAFE | {len(unsafe_frames)} |")
+    md_lines.append(f"| REVIEW | {len(review_frames)} |")
+    md_lines.append(f"| SAFE | {len(safe_frames)} |")
+
+    md_str = "\n".join(md_lines)
+
+    d1, d2 = st.columns(2)
     d1.download_button(
         "JSON Report",
         json_str,
@@ -295,10 +345,4 @@ elif is_video:
         md_str,
         file_name=f"report_{Path(uploaded.name).stem}.md",
         mime="text/markdown",
-    )
-    d3.download_button(
-        "Annotated Video",
-        video_bytes,
-        file_name=f"{Path(uploaded.name).stem}_annotated.mp4",
-        mime="video/mp4",
     )

@@ -18,9 +18,11 @@ Construction-Safety-Monitor/
 │   ├── safe_example.jpg
 │   ├── unsafe_missing_helmet.jpg
 │   └── unsafe_missing_vest.jpg
-├── model/                   # Place best.pt here
+├── model/
+│   └── best.pt              # Trained YOLOv8 model
 ├── notebooks/               # Training notebooks
 ├── src/
+│   ├── __init__.py
 │   ├── main.py              # CLI entry point
 │   ├── monitor.py           # SafetyMonitor (detection + annotation)
 │   ├── rules.py             # Rule engine & evaluation logic
@@ -96,7 +98,7 @@ From the app you can:
 - View the annotated output with bounding boxes and status labels.
 - See a scene summary (total workers, compliant, violations, uncertain) and a per-worker table.
 - Download the analysis as a **JSON** or **Markdown** report.
-- For video: view a safety timeline chart and expandable frame-level violation details.
+- For video: view an aggregated summary with worker counts, violation breakdown, and a sample frame gallery.
 
 ---
 
@@ -119,7 +121,7 @@ From the app you can:
 
 ## Problem Framing & Why YOLOv8
 
-This project is framed as a **construction-site PPE monitoring** problem. The system first detects three visual classes in each frame — **person, helmet, and vest** — and then uses the application layer to determine whether each worker is compliant and whether the overall scene is safe or unsafe. This separation keeps the model focused on reliable object detection while allowing the safety logic to remain transparent, configurable, and easy to improve. 
+This project is framed as a **construction-site PPE monitoring** problem. The system first detects three visual classes in each frame — **person, helmet, and vest** — and then uses the application layer to determine whether each worker is compliant and whether the overall scene is safe or unsafe. This separation keeps the model focused on reliable object detection while allowing the safety logic to remain transparent, configurable, and easy to improve.
 
 **Why YOLOv8**
 

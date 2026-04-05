@@ -1,6 +1,9 @@
+"""Core data classes used throughout the safety monitoring pipeline."""
+
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+# Bounding box format: (x1, y1, x2, y2) in pixel coordinates
 BBox = Tuple[float, float, float, float]
 
 
@@ -18,6 +21,8 @@ class Detection:
 
 @dataclass
 class WorkerAssessment:
+    """Assessment result for a single detected worker."""
+
     worker_index: int
     track_id: Optional[int]
     person_box: BBox
@@ -30,7 +35,10 @@ class WorkerAssessment:
     helmet_confidence: Optional[float] = None
     vest_confidence: Optional[float] = None
 
-    status: str = "COMPLIANT"  # COMPLIANT | VIOLATION | UNCERTAIN
+    # COMPLIANT = all required PPE detected
+    # VIOLATION = one or more PPE items missing
+    # UNCERTAIN = worker too small or truncated for reliable check
+    status: str = "COMPLIANT"
     violations: List[str] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)
 

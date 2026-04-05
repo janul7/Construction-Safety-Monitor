@@ -2,9 +2,9 @@
 
 ## 1. Overview
 
-This project uses a custom construction-safety dataset built for a PPE compliance monitoring system.
+This project uses a custom construction-safety dataset created for a PPE compliance monitoring system.
 
-The main goal of the dataset is to support a system that can answer the practical safety question:
+The main purpose of the dataset is to support a system that can answer the practical safety question:
 
 > **Is this situation safe or unsafe?**
 
@@ -25,156 +25,124 @@ This dataset was prepared to support:
 
 ## 2. Dataset Sources
 
-This submission follows the assignment requirement of using a **custom dataset** by extending a public baseline dataset with my own manually collected images and video frames.
+The final dataset was created by combining:
 
-### Dataset links
+1. a reviewed public baseline dataset, and
+2. a small amount of manually collected supplementary data.
 
-- **Final merged training dataset:** `[ADD_GOOGLE_DRIVE_LINK_FINAL_DATASET]`
-- **Baseline dataset used as starting point:** `[ADD_GOOGLE_DRIVE_LINK_BASELINE_DATASET]`
-- **Manually collected images:** `[ADD_GOOGLE_DRIVE_LINK_MANUAL_IMAGES]`
-- **Manually collected videos:** `[ADD_GOOGLE_DRIVE_LINK_MANUAL_VIDEOS]`
+### Baseline dataset
 
-<!-- FILL_THIS: Add the exact public dataset name and source link below. If you used CHV-PPE, write that exact name here. -->
+The baseline dataset used as the starting point was:
 
-- **Base dataset name:** `[FILL_THIS_WITH_EXACT_DATASET_NAME]`
-- **Base dataset source:** `[FILL_THIS_WITH_SOURCE_LINK]`
+- **Dataset name:** `CHV-PPE (Color Helmet and Vest PPE Dataset)`
+- **Source platform:** `Roboflow Universe`
+- **Initial public dataset size:** `1330 images`
+- **Dataset link:** `https://universe.roboflow.com/ppechvdataset/chv-ppe`
+- **Downloaded version link:** `https://drive.google.com/file/d/187sYErM0Gi4WMznoUHNTtfjHWJDsvDQN/view?usp=drive_link`
 
-### Why this approach was used
+Before downloading the baseline dataset, I reviewed the images and annotations in Roboflow to check whether they were suitable for the target construction safety scenario. During this review:
 
-I did not rely only on a public benchmark. Instead, I extended the baseline dataset with additional manually collected data so the final dataset better reflects the assignment requirement for:
+- images that did not match the project requirements were removed,
+- existing annotations were checked for quality,
+- and bounding boxes were adjusted where necessary.
 
-- varied environments,
-- varied lighting conditions,
-- safe and unsafe scenes,
-- and more realistic PPE monitoring scenarios.
+### Supplementary data
 
----
+To improve variation and make the dataset more relevant to the project scenario, I collected a small amount of additional public data:
 
-## 3. Manual Data Collection
+- **Manually collected images:** 30 images
+- **Manually collected videos:** 6 videos
 
-I collected additional data in two forms:
-
-- manually selected still images,
-- manually selected videos, later converted into representative frames.
-
-### Image collection process
-
-To collect additional images, I searched reusable public sources for construction-related scenes and selected examples that improved diversity.
-
-Typical search keywords included:
-
-- `construction worker helmet vest`
-- `construction site workers`
-- `warehouse safety vest`
-- `industrial worker hard hat`
-- `construction team outdoor site`
-- `indoor construction worker PPE`
-
-I reviewed candidate images one by one and selected examples that helped cover:
-
-- compliant workers,
-- missing helmet cases,
-- missing vest cases,
-- multiple workers in one scene,
-- indoor and outdoor settings,
-- different camera angles,
-- difficult lighting,
-- and partial occlusion.
-
-<!-- FILL_THIS: Replace the example source names below with the exact sources you actually used. -->
-
-Example reusable sources reviewed:
+These were gathered from reusable public sources such as:
 
 - `Pexels`
 - `Wikimedia Commons`
-- `[ADD_ANY_OTHER_SOURCE_YOU_USED]`
 
-### Video collection process
+Project file links:
 
-I also collected public videos containing construction-style scenes and converted them into frames for annotation.
+- **Final merged training dataset:** [Final merged training dataset](https://drive.google.com/file/d/1n9XJKficD09KdzImArLuiFKXn5o9zyvr/view?usp=drive_link)
+- **Manually collected images:** [Manually collected images](https://drive.google.com/file/d/1S6VaZ-RQcwOuK7ob6QOcEFjaO9LkEHpO/view?usp=drive_link)
+- **Manually collected videos:** [Manually collected videos](https://drive.google.com/file/d/1-Rv069J6mbFnd_si4EmchbsJx6KcCEqa/view?usp=drive_link)
+- **Sample of video frames:** [Sample of video frames](https://drive.google.com/file/d/14YvOzRdIh_7Q0-8GcUobQlXG7KnMucLu/view?usp=drive_link)
 
-The main purpose of video collection was to capture:
+---
 
-- natural worker motion,
-- varied poses,
-- realistic camera perspectives,
-- multi-worker scenes,
-- and more diverse PPE visibility patterns.
+## 3. Additional Data Collection
 
-For each video, frame extraction was done using a simple sampling strategy rather than exporting every frame.
+The manually collected supplementary data was added to introduce useful variation beyond the baseline dataset. The purpose of this step was not to build a large separate dataset, but to include scenes that better matched the target safety-monitoring task. Videos were especially useful because they added more realistic scene variation, including motion, different viewpoints, and partial occlusions.
 
-Example strategy:
+Preference was given to images and videos showing:
 
-- use **1 frame every 3 seconds** for slower scenes,
-- use **1 frame every 1 second** when worker movement or camera change is faster.
+- workers wearing helmets and high-visibility vests,
+- workers with missing PPE,
+- indoor and outdoor construction-related settings,
+- multiple workers in a single scene,
+- different viewpoints,
+- varied lighting and environmental conditions.
 
-This helped reduce near-duplicate frames while still preserving useful variation.
+### Video frame extraction
 
-<!-- FILL_THIS: Add your exact frame sampling strategy if it changed by video. -->
+For public videos, frames were not extracted from every frame. Instead, a simple sampling strategy was used to reduce near-duplicate images while preserving useful variation:
+
+- for slower scenes, approximately **one frame every 3 seconds**,
+- for faster scenes or moving-camera scenes, approximately **one frame every 1 second**.
+
+The extracted frames were then annotated and added to the final dataset.
 
 ---
 
 ## 4. Annotation Process
 
-All manually collected data was annotated in **Roboflow** using a unified 3-class schema:
+The public baseline dataset originally contained six classes:
+
+- `vest`
+- `person`
+- `blue-safety-helmet`
+- `red-safety-helmet`
+- `white-safety-helmet`
+- `yellow-safety-helmet`
+
+After reviewing and refining the baseline annotations, the original class structure was mapped into the final three classes used in this project:
 
 - `person`
 - `helmet`
 - `vest`
 
-### Image annotation workflow
+### Class mapping
 
-1. Create the project with the final three classes.
-2. Upload the collected images to Roboflow.
-3. Draw bounding boxes around each visible target object.
-4. Annotate every image using the same label definitions.
-5. Export the dataset in **YOLOv8 format**.
+The mapping was performed as follows:
 
-### Video annotation workflow
+- `person` → `person`
+- `vest` → `vest`
+- `blue-safety-helmet` → `helmet`
+- `red-safety-helmet` → `helmet`
+- `white-safety-helmet` → `helmet`
+- `yellow-safety-helmet` → `helmet`
 
-1. Upload each video to Roboflow.
-2. Decide a frame extraction strategy based on scene motion.
-3. Generate representative frames from the video.
-4. Annotate the exported frames using the same three classes.
-5. Export the labeled result in **YOLOv8 format**.
+This means that all helmet-color categories from the public dataset were merged into a single `helmet` class.
+
+For the manually collected images and video frames, annotation was performed directly from the beginning using the same final three-class schema:
+
+- `person`
+- `helmet`
+- `vest`
+
+This ensured consistency across all data sources before merging them into the final training dataset.
 
 ### Annotation rules used
 
-- annotate visible workers as `person`,
-- annotate helmets being worn as `helmet`,
+The following annotation rules were applied consistently:
+
+- annotate every visible worker as `person`,
+- annotate visible helmets being worn as `helmet`,
 - annotate visible high-visibility vests being worn as `vest`,
-- do not annotate loose helmets lying in the scene,
-- do not create negative classes such as `no-helmet` or `no-vest`,
-- do not guess hidden PPE that is not visible.
+- do not assume or label PPE that is fully hidden or not visually observable.
 
-This annotation design keeps the detector simple and moves the final compliance logic into the rule engine.
+The final labeled dataset was exported in **YOLOv8 format** for training.
 
 ---
 
-## 5. Final Dataset Assembly
-
-After annotation, I used Google Colab to prepare the final dataset used for training.
-
-The training dataset was built by combining three labeled sources:
-
-- the annotated baseline dataset,
-- manually collected annotated images,
-- annotated frames extracted from manually collected videos.
-
-The final preparation pipeline included:
-
-- importing all labeled subsets,
-- checking label consistency,
-- basic preprocessing and cleanup,
-- merging all subsets into one final dataset,
-- creating train / validation / test splits,
-- and preparing the final structure for YOLOv8 training.
-
-This produced a single merged dataset used to train the final PPE detector.
-
----
-
-## 6. Final Class Definition
+## 5. Final Class Definition
 
 The final label schema is:
 
@@ -184,53 +152,37 @@ The final label schema is:
 
 This class design was chosen intentionally.
 
-Instead of creating separate negative classes such as `no-helmet` or `no-vest`, the system detects workers and visible PPE first, then determines violations through rule-based reasoning.
+Instead of defining separate negative classes such as `no-helmet` or `no-vest`, the system first detects workers and visible PPE items, and then determines safety violations through rule-based reasoning.
 
-That makes the system:
+This makes the system:
 
-- easier to explain,
+- easier to interpret,
 - easier to debug,
-- and better aligned with the final safe/unsafe decision task.
+- and better aligned with the final safe/unsafe decision-making task.
 
 ---
 
-## 7. Dataset Summary
+## 6. Dataset Summary
 
-<!-- FILL_THIS: Replace all placeholders below with exact counts from your final dataset. -->
-
-- **Total images / frames:** `[FILL_THIS]`
-- **Baseline dataset images used:** `[FILL_THIS]`
-- **Manually collected images added:** `[FILL_THIS]`
-- **Video frames added:** `[FILL_THIS]`
+- **Total images / frames:** `1372`
 
 ### Final split
 
-- **Train:** `[FILL_THIS]`
-- **Validation:** `[FILL_THIS]`
-- **Test:** `[FILL_THIS]`
+- **Train:** `1093`
+- **Validation:** `141`
+- **Test:** `138`
 
 ### Class distribution
 
-- **Person instances:** `[FILL_THIS]`
-- **Helmet instances:** `[FILL_THIS]`
-- **Vest instances:** `[FILL_THIS]`
-
-### Scene diversity summary
-
-- **Outdoor scenes:** `[FILL_THIS]`
-- **Indoor / warehouse / enclosed scenes:** `[FILL_THIS]`
-- **Daylight scenes:** `[FILL_THIS]`
-- **Artificial-light scenes:** `[FILL_THIS]`
-- **Primarily safe scenes:** `[FILL_THIS]`
-- **Primarily unsafe scenes:** `[FILL_THIS]`
-
-<!-- FILL_THIS: Keep only the counts you can support with your final validation output. -->
+- **Person instances:** `4009`
+- **Helmet instances:** `3632`
+- **Vest instances:** `1872`
 
 ---
 
-## 8. Notes and Limitations
+## 7. Notes and Limitations
 
-This dataset is designed specifically for visible PPE compliance using:
+This dataset is designed specifically for visible PPE compliance based on:
 
 - worker presence,
 - helmet presence,
@@ -242,6 +194,6 @@ It does **not** currently label:
 - vest closure state,
 - fall-protection harnesses,
 - unsafe posture,
-- or other non-PPE hazards.
+- other non-PPE hazards.
 
 These limitations are intentional and keep the dataset aligned with the current project scope.

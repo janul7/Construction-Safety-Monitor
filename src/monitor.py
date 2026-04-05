@@ -11,10 +11,14 @@ from src.smoother import TemporalSmoother
 
 
 class SafetyMonitor:
+    """Main class that ties together detection, rule evaluation, and annotation."""
+
     def __init__(self, model_path: str, rules_path: str) -> None:
         self.model = YOLO(model_path)
         self.rules = load_rules(rules_path)
 
+        # Use the lowest threshold so YOLO returns all relevant detections;
+        # per-class filtering happens later in the rule engine
         thresholds = self.rules["thresholds"]
         self.predict_conf = min(
             thresholds["person_conf"],
@@ -31,6 +35,7 @@ class SafetyMonitor:
         )
 
     def _result_to_detections(self, result) -> List[Detection]:
+        """Convert raw YOLO result tensors into a list of Detection objects."""
         detections: List[Detection] = []
 
         if result.boxes is None or len(result.boxes) == 0:
@@ -60,6 +65,7 @@ class SafetyMonitor:
         return detections
 
     def _infer_frame(self, frame, use_tracking: bool) -> List[Detection]:
+        """Run YOLO inference (with or without tracking) on a single frame."""
         if use_tracking:
             result = self.model.track(
                 frame,
@@ -108,6 +114,7 @@ class SafetyMonitor:
         return (0, 215, 255)        # yellow
 
     def annotate_frame(self, frame, workers: List[WorkerAssessment], scene_status: str):
+        """Draw bounding boxes, status labels, and violation info on the frame."""
         annotated = frame.copy()
 
         header_color = {
